@@ -14,6 +14,10 @@ Thread::Thread()
   wakeup_client->set_read_fn(std::bind(&Thread::handle_jobs, this));
   add_client(wakeup_client);
 }
+/**
+ * @brief 主要的循环，进程会卡在这里
+ * 
+ */
 void Thread::run()
 {
   int event_num = 0;
@@ -27,21 +31,20 @@ void Thread::run()
     for(int i = 0; i < event_num; ++i)
     {
       int fd = events[i].data.fd;
-      Client &cur_cli = *fd2client[fd];
-      cur_cli.set_revent(events[i].events);
-      cur_cli.handle_event();
-      update_client(cur_cli);
+      SP_Client cur_cli = fd2client[fd];
+      cur_cli->set_revent(events[i].events);
+      cur_cli->handle_event();
     }
 
   }
 }
 
-void Thread::update_client(const Client& client)
+void Thread::update_epoll(int fd, EventType ev)
 {
   epoll_event t_event;
-  t_event.data.fd = client.get_fd();
-  t_event.events = client.get_event();
-  epoll_ctl(epollfd, EPOLL_CTL_MOD, client.get_fd(), &t_event);
+  t_event.data.fd = fd;
+  t_event.events = ev;
+  epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &t_event);
 }
 
 void Thread::add_client(SP_Client sp_client)
@@ -52,13 +55,16 @@ void Thread::add_client(SP_Client sp_client)
   t_event.events = sp_client->get_event();
   epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &t_event);
   fd2client[fd] = sp_client;
+  sp_client->set_close_fn(std::bind(&Thread::delete_client, this, sp_client));
+  sp_client->set_epollfd(epollfd);
   ++client_num;
 }
 
-void Thread::delete_client(SP_Client sp_client)
+void Thread::delete_client(SP_Client sp_cli)
 {
-  epoll_ctl(epollfd, EPOLL_CTL_DEL, sp_client->get_fd(), NULL);
-  fd2client.erase(sp_client->get_fd());
+  epoll_ctl(epollfd, EPOLL_CTL_DEL, sp_cli->get_fd(), NULL);
+  fd2client.erase(sp_cli->get_fd());
+  --client_num;
 }
 
 
@@ -83,5 +89,5 @@ void Thread::handle_jobs()
   }
   for(auto &fn : m_jobs_quene)
     fn();
-  update_client(*fd2client[wakeup_fd]);
+  //update_client(*fd2client[wakeup_fd]);
 }

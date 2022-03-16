@@ -5,11 +5,14 @@
 #include<memory>
 #include"mutex.h"
 #include<unistd.h>
+
 const int maxClient = 4096;
 const int initial_client = 128;
-class Thread {
+
+class Thread:public std::enable_shared_from_this<Thread> {
   using SP_Client = std::shared_ptr<Client>;
   using CallBack = std::function<void()>;
+  using EventType = decltype(epoll_event::events);
   private:
     Mutex mutex;
     int epollfd;
@@ -24,9 +27,11 @@ class Thread {
     Thread();
     int tid;
     void run();
+
     void add_client(SP_Client);
+    void update_epoll(int fd, EventType ev);
     void delete_client(SP_Client);
-    void update_client(const Client& client);
+
     void append_job(CallBack&&);
     void handle_jobs();
 

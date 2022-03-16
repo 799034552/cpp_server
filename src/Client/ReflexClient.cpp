@@ -16,10 +16,11 @@ void ReflexClient::reflex_read()
     t_buf[n]='\0';
     client_buf += t_buf;
   }
+  printf("%s",client_buf.c_str());
   if (n < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK)
     {
-      set_event(EPOLLOUT | EPOLLET);
+      update_event(EPOLLOUT | EPOLLET);
     }
     else
       return ;
@@ -27,10 +28,11 @@ void ReflexClient::reflex_read()
     if (client_buf.size() == 0)
     {
       ::close(fd);
+      is_close = true;
     }
     else
     {
-      set_event(EPOLLOUT | EPOLLET);
+      update_event(EPOLLOUT | EPOLLET);
     }
     return;
   }
@@ -45,7 +47,7 @@ void ReflexClient::reflex_write()
     if (n == client_buf.size())  //全部发送完成
     { 
       client_buf.clear();
-      set_event(EPOLLIN | EPOLLET);
+      update_event(EPOLLIN | EPOLLET);
     }
     else //还没发送完
       client_buf = client_buf.substr(n);
