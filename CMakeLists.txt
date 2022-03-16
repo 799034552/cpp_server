@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 2.8)
+project(main)
+file(GLOB SRC "./src/*.cpp")
+add_compile_options("-std=c++11")
+include_directories(src)
+add_executable(main main.cpp ${SRC})
+target_link_libraries(main pthread)
