@@ -5,7 +5,6 @@
 #include"Client.h"
 #include<sys/socket.h>
 #include<memory>
-#define DEBUG
 class Server {
   private:
     int port; //端口

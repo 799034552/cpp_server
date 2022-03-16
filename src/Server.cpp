@@ -3,6 +3,7 @@
 #include"Server.h"
 #include"util.h"
 #include<unistd.h>
+#include"ReflexClient.h"
 Server::Server():main_thread(new Thread())
 {
 
@@ -37,10 +38,12 @@ void Server::get_accept()
   if ((connfd = accept(listenfd, NULL, NULL)) < 0)
   {
     perror("accept fail");
+    return;
   }
   printf("main thread i get connect\n");
+  SP_ReflexClient client = SP_ReflexClient(new ReflexClient(connfd));
   SP_Thread thr = thread_pool->get_next_thread();
-  // thr->append_job(std::bind())
+  thr->append_job(std::bind(&Thread::add_client, thr, client));
 }
 
 

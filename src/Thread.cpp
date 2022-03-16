@@ -13,7 +13,6 @@ Thread::Thread()
   wakeup_client->set_event(EPOLLIN|EPOLLET);
   wakeup_client->set_read_fn(std::bind(&Thread::handle_jobs, this));
   add_client(wakeup_client);
-
 }
 void Thread::run()
 {
@@ -25,7 +24,6 @@ void Thread::run()
   {
     if ((event_num = epoll_wait(epollfd, &events[0], events.size(), -1)) < 0)
       perror("epoll error");
-    
     for(int i = 0; i < event_num; ++i)
     {
       int fd = events[i].data.fd;
@@ -70,14 +68,14 @@ void Thread::append_job(CallBack && fn)
     MutexGuard lock(mutex);
     jobs_quene.push_back(fn);
   }
-  char t_buf[1] = {};
-  write(wakeup_fd, t_buf, sizeof(t_buf));
+  uint64_t  t_buf = 1;
+  write(wakeup_fd, &t_buf, sizeof(t_buf));
 }
 
 void Thread::handle_jobs()
 {
-  char t_buf[3];
-  while((read(wakeup_fd, t_buf, sizeof(t_buf))) > 0);
+  uint64_t t_buf;
+  (read(wakeup_fd, &t_buf, sizeof(t_buf)));
   std::vector<CallBack> m_jobs_quene;
   {
     MutexGuard lock(mutex);
