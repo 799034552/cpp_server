@@ -2,7 +2,7 @@
 #include<stdio.h>
 int main()
 {
-    //setbuf(stdout, NULL);
+    setbuf(stdout, NULL);
     Server app;
     app.listen(4399, []{
         printf("server start at 127.0.0.1:4399\n");
@@ -10,7 +10,7 @@ int main()
 
     app.get("/", [](Req &req, Res &res){
         res.send("i get :\r\n");
-        for(const auto &t: req.data)
+        for(const auto &t: *req.data)
             res.send(t.first + ":" + t.second + "\r\n");
 
         res.send("hello world");
@@ -18,7 +18,7 @@ int main()
 
     app.post("/", [](Req &req, Res &res){
         res.send("i get :\r\n");
-        for(const auto &t: req.data)
+        for(const auto &t: *req.data)
             res.send(t.first + ":" + t.second + "\r\n");
         res.send("hello world");
     });
@@ -27,6 +27,4 @@ int main()
         res.send("hello world this is main");
     });
     app.run();
-
-
 }

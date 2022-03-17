@@ -8,8 +8,14 @@
 #include<unordered_map>
 #include<map>
 using std::string;
-struct Req {
-  std::unordered_map<string,string> &data;
+class Req {
+  public:
+    bool is_json;
+    std::unordered_map<string,string> *data;
+    string *text;
+    Req() = default;
+    void set(bool is_json_, std::unordered_map<string,string> *data_, string *text_)
+      {is_json = is_json_; data = data_; text =text_;}
 };
 
 class Res {
@@ -39,6 +45,7 @@ class HttpClient: public Client {
     void read_to_send(const Res&);
     void reset();
     int get_line(string &line);
+    bool is_json;
   public:
     static std::map<string, std::function<void(Req&, Res&)>> get_progress;
     static std::map<string, std::function<void(Req&, Res&)>> post_progress;

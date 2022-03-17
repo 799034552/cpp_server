@@ -147,8 +147,12 @@ HttpClient::HTTP_STATE HttpClient::parse_body()
         get_data[m_res[0]] = m_res[1];
       }
     }
+    else if (http_data["Content-Type"] == "application/json")
+    {
+
+    }
     else
-      get_data["message"] = client_buf;
+      get_data["text"] = client_buf;
     return HTTP_STATE::HTTP_OK;
   }
 }
@@ -159,8 +163,12 @@ void HttpClient::http_write()
   if (send_buf.size() == 0)
   {
     client_buf.clear();
-    Req req = {get_data};
+    Req req;
     Res res;
+    if (is_json)
+      req.set(is_json, &get_data, NULL);
+    else
+      req.set(is_json, NULL, &get_data["text"]);
     string url = http_data["url"];
     if(http_data["method"] == "GET")
     {
