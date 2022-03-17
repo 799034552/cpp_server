@@ -1,9 +1,8 @@
 #include"Server.h"
-#include<sys/epoll.h>
 #include<stdio.h>
 int main()
 {
-    setbuf(stdout, NULL);
+    //setbuf(stdout, NULL);
     Server app;
     app.listen(4399, []{
         printf("server start at 127.0.0.1:4399\n");
@@ -21,7 +20,6 @@ int main()
         res.send("i get :\r\n");
         for(const auto &t: req.data)
             res.send(t.first + ":" + t.second + "\r\n");
-
         res.send("hello world");
     });
 

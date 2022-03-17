@@ -58,47 +58,33 @@ void HttpClient::http_read()
   }
   else if (n == 0 && !read_close)
     return;
-
-  //开始解析
-  if (parse_state != PARSE_STATE::BODY)
+  
+  // 开始解析
+  string line;
+  while((n = get_line(line))!= -1)
   {
-    auto split_res = split(client_buf, "\r\n");
-    for(const auto &line : split_res)
-    {
-      switch (parse_state)
-      {
-        case PARSE_STATE::URL:
-          http_state = parse_url(line);
-          break;
-        
-        case PARSE_STATE::HEAD:
-          http_state = parse_head(line);
-          break;
-        case PARSE_STATE::BODY:
-          http_state = HTTP_STATE::HTTP_OK;
-          break;
-      }
-
-      if (http_state == HTTP_STATE::HTTP_BAD) { //错误就关闭
-        is_close = true;
-        break;
-      } else if (http_state == HTTP_STATE::HTTP_OK) {
-        break;
-      }
-    }
+    if (parse_state == PARSE_STATE::URL)
+      http_state = parse_url(line);
+    else if (parse_state == PARSE_STATE::HEAD)
+      http_state = parse_head(line);
+    else
+      break;
+    if (http_state == HTTP_STATE::HTTP_BAD) { //错误就关闭
+      is_close = true;
+      break;
+    } else if (http_state == HTTP_STATE::HTTP_OK)
+      break;
   }
   if (parse_state == PARSE_STATE::BODY)
-  { //解析body
-    cout<<"parse body"<<"---------------------"<<endl;
-    http_state = parse_body();
-  }
+    cout<<"pase body",http_state = parse_body();
+  
   if (read_close || http_state == HTTP_STATE::HTTP_OK)
     update_event(EPOLLOUT|EPOLLET);
+  
   cout<<"i got this----------------------------------------"<<endl;
   for(const auto &t: http_data)
     printf("%s:%s\n", t.first.c_str(), t.second.c_str());
   cout<<"http_state:"<<(http_state == HTTP_STATE::HTTP_OK)<<endl;
-
 }
 HttpClient::HTTP_STATE HttpClient::parse_url(const string &line)
 {
@@ -128,6 +114,7 @@ HttpClient::HTTP_STATE HttpClient::parse_head(const string & line)
       return HTTP_STATE::HTTP_OK;
     }
     else if (http_data["method"] == "POST") {
+      get_data.clear();
       parse_state = PARSE_STATE::BODY;
       return HTTP_STATE::HTTP_OPEN;
     } else
@@ -152,11 +139,16 @@ HttpClient::HTTP_STATE HttpClient::parse_body()
   if (client_buf.size() < atoi(http_data["Content-Type"].c_str()))
     return HTTP_STATE::HTTP_OPEN;
   else {
-    const auto &s_res = split_const(client_buf, '&');
-    for(const auto &temp: s_res){
-      const auto m_res = split_const(temp, '=');
-      get_data[m_res[0]] = m_res[1];
+    if (http_data["Content-Type"] == "application/x-www-form-urlencoded") //这种类型才解析
+    {
+      const auto &s_res = split_const(client_buf, '&');
+      for(const auto &temp: s_res){
+        const auto m_res = split_const(temp, '=');
+        get_data[m_res[0]] = m_res[1];
+      }
     }
+    else
+      get_data["message"] = client_buf;
     return HTTP_STATE::HTTP_OK;
   }
 }
@@ -185,7 +177,10 @@ void HttpClient::http_write()
       if (be == en)
         res.send("404 not found");
     }
-    else if (http_data["method"] == "POST" && http_data["Content-Type"] == "application/x-www-form-urlencoded")
+    else if (http_data["method"] == "POST" && ( //支持的类型
+      http_data["Content-Type"] == "application/x-www-form-urlencoded"
+      || http_data["Content-Type"] == "text/plain"
+      ))
     {
       auto en = post_progress.end();
       auto be = post_progress.begin();
@@ -239,4 +234,17 @@ void HttpClient::read_to_send(const Res& res)
     send_buf += (temp.first+ ":" + temp.second + "\r\n");
   send_buf += "\r\n";
   send_buf += res.get_buf();
+}
+
+int HttpClient::get_line(string &line)
+{
+  int n;
+  if((n = client_buf.find("\r\n")) != string::npos)
+  {
+    line = client_buf.substr(0, n);
+    client_buf.erase(0, n+2);
+    return 0;
+  }
+  else
+    return -1;
 }

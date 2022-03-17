@@ -38,6 +38,7 @@ class HttpClient: public Client {
     HTTP_STATE parse_body();
     void read_to_send(const Res&);
     void reset();
+    int get_line(string &line);
   public:
     static std::map<string, std::function<void(Req&, Res&)>> get_progress;
     static std::map<string, std::function<void(Req&, Res&)>> post_progress;
