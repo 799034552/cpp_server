@@ -1,4 +1,11 @@
 #include"HttpClient.h"
+#include<iostream>
+using std::cout;
+using std::endl;
+
+std::map<string, std::function<void(Req&, Res&)>> HttpClient::get_progress;
+std::map<string, std::function<void(Req&, Res&)>> HttpClient::post_progress;
+
 HttpClient::HttpClient(const int &fd_):
   Client(fd_),
   parse_state(PARSE_STATE::URL),
@@ -8,11 +15,19 @@ HttpClient::HttpClient(const int &fd_):
   read_fn = std::bind(&HttpClient::http_read, this);
   write_fn = std::bind(&HttpClient::http_write, this);
   set_event(EPOLLIN | EPOLLET);
+
+  send_first= "HTTP/1.1 200 OK";
+  header["Connection"]="Keep-Alive";
+  header["Keep-Alive"]="timeout=20000";
+  header["Content-Type"]="text/plain";
+  header["Server"]="string\'s server";
+
 };
 
 void HttpClient::http_read()
 {
   int n = read_all(read_close);
+  std::cout<<client_buf<<std::endl;
   if (n < 0) {
     is_close = true;
     return;
@@ -34,17 +49,27 @@ void HttpClient::http_read()
       case PARSE_STATE::HEAD:
         http_state = parse_head(line);
         break;
+
+      case PARSE_STATE::BODY:
+        http_state = parse_body(line);
+        break;
     
       default:
         break;
     }
-    if (http_state == HTTP_STATE::HTTP_BAD) {
+    if (http_state == HTTP_STATE::HTTP_BAD) { //错误就关闭
       is_close = true;
+      break;
+    } else if (http_state == HTTP_STATE::HTTP_OK) {
       break;
     }
   }
-  if (read_close)
+  if (read_close || http_state == HTTP_STATE::HTTP_OK)
     update_event(EPOLLOUT|EPOLLET);
+  
+  for(const auto &t: http_data)
+    printf("%s:%s\n", t.first.c_str(), t.second.c_str());
+    cout<<"http_state:"<<(http_state == HTTP_STATE::HTTP_OK)<<endl;
 
 }
 HttpClient::HTTP_STATE HttpClient::parse_url(const string &line)
@@ -55,7 +80,7 @@ HttpClient::HTTP_STATE HttpClient::parse_url(const string &line)
     http_data["url"] = line_res[1];
     http_data["version"] = line_res[2];
     parse_state = PARSE_STATE::HEAD;
-    HTTP_STATE::HTTP_OPEN;
+    return HTTP_STATE::HTTP_OPEN;
   }
   else
     return HTTP_STATE::HTTP_BAD;
@@ -85,11 +110,58 @@ HttpClient::HTTP_STATE HttpClient::parse_head(const string & line)
 }
 HttpClient::HTTP_STATE HttpClient::parse_body(const string &)
 {
-  
+
 }
 
 
 void HttpClient::http_write()
 {
+  if (send_buf.size() == 0)
+  {
+    Req req = {http_data};
+    Res res;
+    string url = http_data["url"];
+    if(http_data["method"] == "GET")
+    {
+      auto en = get_progress.end();
+      auto be = get_progress.begin();
+      for(; be !=  en; ++be)
+      {
+        if (be->first.substr(0, url.size()) == url)
+        {
+          be->second(req, res);
+          break;
+        }
+      }
+      if (be == en)
+        res.send("404 not found");
+    }
+    read_to_send(res);
+    printf("send:\n%s\n",send_buf.c_str());
+  }
 
+  int n = write(fd, &send_buf[0], send_buf.size());
+  if (n > 0) //发送成功一部分
+  {
+    if(n == send_buf.size())
+    {
+      send_buf.clear();
+      update_event(EPOLLIN|EPOLLET);
+    }
+    else 
+      send_buf = send_buf.substr(n);
+  } else if (n < 0)
+    is_close = true;
+
+}
+
+void HttpClient::read_to_send(const Res& res)
+{
+  send_buf.clear();
+  send_buf += send_first + "\r\n";
+  header["Content-Length"] = std::to_string(res.get_buf().size());
+  for(const auto &temp: header)
+    send_buf += (temp.first+ ":" + temp.second + "\r\n");
+  send_buf += "\r\n";
+  send_buf += res.get_buf();
 }

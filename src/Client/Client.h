@@ -15,6 +15,7 @@ class Client {
     int fd;
     enum class LINE_STATE {LINE_OPEN = 0, LINE_BAD, LINE_OK};
     std::string client_buf;
+    std::string send_buf;
     EventType event;
     EventType revent;
     CallBack read_fn;

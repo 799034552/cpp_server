@@ -3,7 +3,7 @@
 #include"Server.h"
 #include"util.h"
 #include<unistd.h>
-#include"ReflexClient.h"
+//#include"ReflexClient.h"
 Server::Server():main_thread(new Thread())
 {
 
@@ -41,7 +41,8 @@ void Server::get_accept()
     return;
   }
   printf("main thread i get connect\n");
-  SP_ReflexClient client = SP_ReflexClient(new ReflexClient(connfd));
+  //SP_ReflexClient client = SP_ReflexClient(new ReflexClient(connfd));
+  SP_HttpClient client = SP_HttpClient(new HttpClient(connfd));
   SP_Thread thr = thread_pool->get_next_thread();
   thr->append_job(std::bind(&Thread::add_client, thr, client));
 }
@@ -63,4 +64,9 @@ void Server::Bind(int __fd, int port)
   addr.sin_port = htons(port);
   if ( bind(__fd, (sockaddr*)&addr, sizeof(addr)) < 0)
     perror("listen fail"),exit(0);
+}
+
+void Server::get(const string& url, const std::function<void(Req&, Res&)> &fn)
+{
+  HttpClient::get_progress[url]=fn;
 }

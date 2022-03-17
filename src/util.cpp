@@ -32,7 +32,8 @@ vector<string> split(string &s, const char *sp)
 
 void trim(string &s)
 {
-  s.assign(s.find_first_not_of(' '), s.find_last_not_of(' '));
+  auto a = s.begin();
+  s.assign(a + s.find_first_not_of(' '),a + s.find_last_not_of(' ')+1);
 }
 vector<string> split_const(const string &s, std::initializer_list<const char> sp)
 {

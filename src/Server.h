@@ -3,8 +3,12 @@
 #include"Thread.h"
 #include"util.h"
 #include"Client.h"
+#include"HttpClient.h"
+#include<string>
 #include<sys/socket.h>
 #include<memory>
+using std::string;
+
 class Server {
   private:
     int port; //端口
@@ -20,6 +24,5 @@ class Server {
     Server();
     void listen(int port_, std::function<void()> fn = NULL,int thread_num = 4);
     void run();
-
-
+    void get(const string& url, const std::function<void(Req&, Res&)> &);
 };
