@@ -27,13 +27,15 @@ HttpClient::HttpClient(const int &fd_):
 void HttpClient::http_read()
 {
   int n = read_all(read_close);
-  std::cout<<client_buf<<std::endl;
+  cout<<"i got this raw----------------------------------------"<<endl;
+  cout<<client_buf<<endl;
   if (n < 0) {
     is_close = true;
     return;
   }
   else if (n == 0 && !read_close)
     return;
+
 
   auto split_res = split(client_buf, "\r\n");
 
@@ -66,10 +68,10 @@ void HttpClient::http_read()
   }
   if (read_close || http_state == HTTP_STATE::HTTP_OK)
     update_event(EPOLLOUT|EPOLLET);
-  
+  cout<<"i got this----------------------------------------"<<endl;
   for(const auto &t: http_data)
     printf("%s:%s\n", t.first.c_str(), t.second.c_str());
-    cout<<"http_state:"<<(http_state == HTTP_STATE::HTTP_OK)<<endl;
+  cout<<"http_state:"<<(http_state == HTTP_STATE::HTTP_OK)<<endl;
 
 }
 HttpClient::HTTP_STATE HttpClient::parse_url(const string &line)
@@ -77,8 +79,16 @@ HttpClient::HTTP_STATE HttpClient::parse_url(const string &line)
   auto line_res = split_const(line, {' ','\t'});
   if (line_res.size() == 3) {
     http_data["method"] = line_res[0];
-    http_data["url"] = line_res[1];
     http_data["version"] = line_res[2];
+
+    auto s_res = split_const(line_res[1], '?');
+    http_data["url"] = s_res[0];
+    s_res = split_const(s_res[1], '&');
+    for(const auto &temp: s_res){
+      const auto m_res = split_const(temp, '=');
+      get_data[m_res[0]] = m_res[1];
+    }
+
     parse_state = PARSE_STATE::HEAD;
     return HTTP_STATE::HTTP_OPEN;
   }
@@ -118,7 +128,8 @@ void HttpClient::http_write()
 {
   if (send_buf.size() == 0)
   {
-    Req req = {http_data};
+    client_buf.clear();
+    Req req = {get_data};
     Res res;
     string url = http_data["url"];
     if(http_data["method"] == "GET")
@@ -127,7 +138,7 @@ void HttpClient::http_write()
       auto be = get_progress.begin();
       for(; be !=  en; ++be)
       {
-        if (be->first.substr(0, url.size()) == url)
+        if (be->first == url)
         {
           be->second(req, res);
           break;
@@ -137,6 +148,7 @@ void HttpClient::http_write()
         res.send("404 not found");
     }
     read_to_send(res);
+    cout<<"i send this----------------------------------------"<<endl;
     printf("send:\n%s\n",send_buf.c_str());
   }
 
@@ -147,6 +159,9 @@ void HttpClient::http_write()
     {
       send_buf.clear();
       update_event(EPOLLIN|EPOLLET);
+      parse_state = PARSE_STATE::URL;
+      http_state = HTTP_STATE::HTTP_OPEN;
+      http_data.clear();
     }
     else 
       send_buf = send_buf.substr(n);

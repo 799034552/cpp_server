@@ -30,6 +30,7 @@ class HttpClient: public Client {
     void http_read();
     void http_write();
     std::unordered_map<string, string> http_data;
+    std::unordered_map<string, string> get_data;
     string send_first;
     std::unordered_map<string, string> header;
     HTTP_STATE parse_url(const string &);
