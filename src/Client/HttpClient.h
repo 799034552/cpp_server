@@ -35,8 +35,9 @@ class HttpClient: public Client {
     std::unordered_map<string, string> header;
     HTTP_STATE parse_url(const string &);
     HTTP_STATE parse_head(const string &);
-    HTTP_STATE parse_body(const string &);
+    HTTP_STATE parse_body();
     void read_to_send(const Res&);
+    void reset();
   public:
     static std::map<string, std::function<void(Req&, Res&)>> get_progress;
     static std::map<string, std::function<void(Req&, Res&)>> post_progress;

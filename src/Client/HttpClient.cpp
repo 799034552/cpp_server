@@ -6,6 +6,11 @@ using std::endl;
 std::map<string, std::function<void(Req&, Res&)>> HttpClient::get_progress;
 std::map<string, std::function<void(Req&, Res&)>> HttpClient::post_progress;
 
+/**
+ * @brief 初始化httpclient
+ * 
+ * @param fd_ 
+ */
 HttpClient::HttpClient(const int &fd_):
   Client(fd_),
   parse_state(PARSE_STATE::URL),
@@ -15,15 +20,33 @@ HttpClient::HttpClient(const int &fd_):
   read_fn = std::bind(&HttpClient::http_read, this);
   write_fn = std::bind(&HttpClient::http_write, this);
   set_event(EPOLLIN | EPOLLET);
+  reset();
 
+};
+
+/**
+ * @brief 重置状态，用于长连接
+ * 
+ */
+void HttpClient::reset()
+{
+  send_buf.clear();
+  parse_state = PARSE_STATE::URL;
+  http_state = HTTP_STATE::HTTP_OPEN;
+  http_data.clear();
+  get_data.clear();
   send_first= "HTTP/1.1 200 OK";
+  header.clear();
   header["Connection"]="Keep-Alive";
   header["Keep-Alive"]="timeout=20000";
   header["Content-Type"]="text/plain";
   header["Server"]="string\'s server";
+}
 
-};
-
+/**
+ * @brief http读事件
+ * 
+ */
 void HttpClient::http_read()
 {
   int n = read_all(read_close);
@@ -36,35 +59,38 @@ void HttpClient::http_read()
   else if (n == 0 && !read_close)
     return;
 
-
-  auto split_res = split(client_buf, "\r\n");
-
   //开始解析
-  for(const auto &line : split_res)
+  if (parse_state != PARSE_STATE::BODY)
   {
-    switch (parse_state)
+    auto split_res = split(client_buf, "\r\n");
+    for(const auto &line : split_res)
     {
-      case PARSE_STATE::URL:
-        http_state = parse_url(line);
-        break;
-      
-      case PARSE_STATE::HEAD:
-        http_state = parse_head(line);
-        break;
+      switch (parse_state)
+      {
+        case PARSE_STATE::URL:
+          http_state = parse_url(line);
+          break;
+        
+        case PARSE_STATE::HEAD:
+          http_state = parse_head(line);
+          break;
+        case PARSE_STATE::BODY:
+          http_state = HTTP_STATE::HTTP_OK;
+          break;
+      }
 
-      case PARSE_STATE::BODY:
-        http_state = parse_body(line);
+      if (http_state == HTTP_STATE::HTTP_BAD) { //错误就关闭
+        is_close = true;
         break;
-    
-      default:
+      } else if (http_state == HTTP_STATE::HTTP_OK) {
         break;
+      }
     }
-    if (http_state == HTTP_STATE::HTTP_BAD) { //错误就关闭
-      is_close = true;
-      break;
-    } else if (http_state == HTTP_STATE::HTTP_OK) {
-      break;
-    }
+  }
+  if (parse_state == PARSE_STATE::BODY)
+  { //解析body
+    cout<<"parse body"<<"---------------------"<<endl;
+    http_state = parse_body();
   }
   if (read_close || http_state == HTTP_STATE::HTTP_OK)
     update_event(EPOLLOUT|EPOLLET);
@@ -101,8 +127,11 @@ HttpClient::HTTP_STATE HttpClient::parse_head(const string & line)
     if (http_data["method"] == "GET") {
       return HTTP_STATE::HTTP_OK;
     }
-    parse_state = PARSE_STATE::BODY;
-    return HTTP_STATE::HTTP_OPEN;
+    else if (http_data["method"] == "POST") {
+      parse_state = PARSE_STATE::BODY;
+      return HTTP_STATE::HTTP_OPEN;
+    } else
+      return HTTP_STATE::HTTP_BAD;
   }
   auto line_res = split_const(line, ':');
   if (line_res.size() > 1)
@@ -118,9 +147,18 @@ HttpClient::HTTP_STATE HttpClient::parse_head(const string & line)
   else
     return HTTP_STATE::HTTP_BAD;
 }
-HttpClient::HTTP_STATE HttpClient::parse_body(const string &)
+HttpClient::HTTP_STATE HttpClient::parse_body()
 {
-
+  if (client_buf.size() < atoi(http_data["Content-Type"].c_str()))
+    return HTTP_STATE::HTTP_OPEN;
+  else {
+    const auto &s_res = split_const(client_buf, '&');
+    for(const auto &temp: s_res){
+      const auto m_res = split_const(temp, '=');
+      get_data[m_res[0]] = m_res[1];
+    }
+    return HTTP_STATE::HTTP_OK;
+  }
 }
 
 
@@ -147,25 +185,47 @@ void HttpClient::http_write()
       if (be == en)
         res.send("404 not found");
     }
+    else if (http_data["method"] == "POST" && http_data["Content-Type"] == "application/x-www-form-urlencoded")
+    {
+      auto en = post_progress.end();
+      auto be = post_progress.begin();
+      for(; be !=  en; ++be)
+      {
+        if (be->first == url)
+        {
+          be->second(req, res);
+          break;
+        }
+      }
+      if (be == en) //m没有对应的信息
+      {
+        send_first = "HTTP/1.1 404 Not Found!";
+        res.send("404 Not Found");
+      }
+    }
+    else {
+      send_first = "HTTP/1.1 503 Service Unavailable";
+      res.send("Service Unavailable");
+    }
     read_to_send(res);
     cout<<"i send this----------------------------------------"<<endl;
     printf("send:\n%s\n",send_buf.c_str());
   }
 
   int n = write(fd, &send_buf[0], send_buf.size());
-  if (n > 0) //发送成功一部分
+  if (n > 0) 
   {
-    if(n == send_buf.size())
+    if(n == send_buf.size()) //发送成功
     {
-      send_buf.clear();
       update_event(EPOLLIN|EPOLLET);
-      parse_state = PARSE_STATE::URL;
-      http_state = HTTP_STATE::HTTP_OPEN;
-      http_data.clear();
+      reset();
     }
-    else 
+    else  //发送成功一部分
       send_buf = send_buf.substr(n);
   } else if (n < 0)
+    is_close = true;
+  
+  if (read_close)
     is_close = true;
 
 }

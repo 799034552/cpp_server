@@ -70,3 +70,8 @@ void Server::get(const string& url, const std::function<void(Req&, Res&)> &fn)
 {
   HttpClient::get_progress[url]=fn;
 }
+
+void Server::post(const string& url, const std::function<void(Req&, Res&)> &fn)
+{
+  HttpClient::post_progress[url]=fn;
+}

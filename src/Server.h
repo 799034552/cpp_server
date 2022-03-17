@@ -25,4 +25,5 @@ class Server {
     void listen(int port_, std::function<void()> fn = NULL,int thread_num = 4);
     void run();
     void get(const string& url, const std::function<void(Req&, Res&)> &);
+    void post(const string& url, const std::function<void(Req&, Res&)> &);
 };
