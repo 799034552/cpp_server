@@ -12,7 +12,7 @@ Thread::Thread()
   SP_Client wakeup_client = std::make_shared<Client>(wakeup_fd);
   wakeup_client->set_event(EPOLLIN|EPOLLET);
   wakeup_client->set_read_fn(std::bind(&Thread::handle_jobs, this));
-  add_client(wakeup_client);
+  add_client(wakeup_client, false);
 }
 /**
  * @brief 主要的循环，进程会卡在这里
@@ -47,7 +47,7 @@ void Thread::update_epoll(int fd, EventType ev)
   epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &t_event);
 }
 
-void Thread::add_client(SP_Client sp_client)
+void Thread::add_client(SP_Client sp_client, bool is_timeout)
 {
   int fd = sp_client->get_fd();
   epoll_event t_event;
@@ -57,7 +57,8 @@ void Thread::add_client(SP_Client sp_client)
   fd2client[fd] = sp_client;
   sp_client->set_close_fn(std::bind(&Thread::delete_client, this, sp_client));
   sp_client->set_epollfd(epollfd);
-  sp_client->set_time_node(timer.add_time_node(sp_client, time(0) + sp_client->live_time));
+  if (is_timeout)
+    sp_client->set_time_node(timer.add_time_node(sp_client, time(0) + sp_client->live_time));
   ++client_num;
 }
 

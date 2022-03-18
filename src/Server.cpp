@@ -22,7 +22,7 @@ void Server::listen(int port_, std::function<void()> fn,int thread_num)
   appcet_client = std::make_shared<Client>(listenfd);
   appcet_client->set_event(EPOLLIN);
   appcet_client->set_read_fn(std::bind(&Server::get_accept, this));
-  main_thread->add_client(appcet_client);
+  main_thread->add_client(appcet_client, false);
   if (fn) fn();
 }
 
@@ -44,7 +44,7 @@ void Server::get_accept()
   //SP_ReflexClient client = SP_ReflexClient(new ReflexClient(connfd));
   SP_HttpClient client = SP_HttpClient(new HttpClient(connfd));
   SP_Thread thr = thread_pool->get_next_thread();
-  thr->append_job(std::bind(&Thread::add_client, thr, client));
+  thr->append_job(std::bind(&Thread::add_client, thr, client, true));
 }
 
 

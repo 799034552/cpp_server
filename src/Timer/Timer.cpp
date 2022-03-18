@@ -53,4 +53,7 @@ void Timer::check()
 }
 
 void Client::set_time_node(const std::shared_ptr<TimeNode> &t) {time_node = t;}
-void Client::update_timenode() {time_node->is_update = true;}
+void Client::update_timenode() {
+  if (time_node != nullptr)
+    time_node->is_update = true;
+}

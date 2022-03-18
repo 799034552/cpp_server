@@ -6,7 +6,7 @@ int main()
     Server app;
     app.listen(4399, []{
         printf("server start at 127.0.0.1:4399\n");
-    },1);
+    },3);
 
     app.get("/", [](Req &req, Res &res){
         res.send("i get :\r\n");

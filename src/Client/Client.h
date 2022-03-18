@@ -32,7 +32,7 @@ class Client {
     bool is_close;
     time_t live_time;
     CallBack close_fn;
-    Client(const int &fd_):fd(fd_),is_close(false),live_time(2*60) { set_fd_noblock(fd); };
+    Client(const int &fd_):fd(fd_),is_close(false),live_time(2*60),time_node(nullptr) { set_fd_noblock(fd); };
     void set_event(const EventType &e){ event = e;}
     void set_revent(const EventType &e){ revent = e;}
     EventType get_event() const { return event; }
