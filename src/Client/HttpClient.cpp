@@ -82,14 +82,14 @@ void HttpClient::http_read()
   }
   //cout<<"parse get over----------------"<<endl;
   if (parse_state == PARSE_STATE::BODY)
-    //cout<<"pase body",http_state = parse_body();
+    http_state = parse_body();
   
   if (read_close || http_state == HTTP_STATE::HTTP_OK)
     update_event(EPOLLOUT|EPOLLET);
   
   //cout<<"i got this----------------------------------------"<<endl;
-  for(const auto &t: http_data)
-    printf("%s:%s\n", t.first.c_str(), t.second.c_str());
+  //for(const auto &t: http_data)
+  //  printf("%s:%s\n", t.first.c_str(), t.second.c_str());
   //cout<<"http_state:"<<(http_state == HTTP_STATE::HTTP_OK)<<endl;
 }
 HttpClient::HTTP_STATE HttpClient::parse_url(const string &line)
@@ -106,7 +106,7 @@ HttpClient::HTTP_STATE HttpClient::parse_url(const string &line)
       auto s_res = split_const(line_res[1], '?');
       http_data["url"] = s_res[0];
       s_res = split_const(s_res[1], '&');
-      cout<<"parse url----------------"<<endl;
+      //cout<<"parse url----------------"<<endl;
       for(const auto &temp: s_res){
         const auto m_res = split_const(temp, '=');
         get_data[m_res[0]] = m_res[1];
@@ -209,7 +209,7 @@ void HttpClient::http_write()
             res.send(file_url);
           res.add_header("Content-Type", "text/html");
           // for(auto t: header)
-          //   cout<<t.first<<" "<<t.second<<endl;
+          //   //cout<<t.first<<" "<<t.second<<endl;
           fs.close();
         }
         else
@@ -248,7 +248,7 @@ void HttpClient::http_write()
     read_to_send(res);
     client_buf.clear();
     //cout<<"i send this----------------------------------------"<<endl;
-    printf("send:\n%s\n",send_buf.c_str());
+    //printf("send:\n%s\n",send_buf.c_str());
   }
 
   int n = write(fd, &send_buf[0], send_buf.size());

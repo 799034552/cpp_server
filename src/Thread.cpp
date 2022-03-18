@@ -35,7 +35,7 @@ void Thread::run()
       cur_cli->set_revent(events[i].events);
       cur_cli->handle_event();
     }
-
+    timer.check();
   }
 }
 
@@ -57,6 +57,7 @@ void Thread::add_client(SP_Client sp_client)
   fd2client[fd] = sp_client;
   sp_client->set_close_fn(std::bind(&Thread::delete_client, this, sp_client));
   sp_client->set_epollfd(epollfd);
+  sp_client->set_time_node(timer.add_time_node(sp_client, time(0) + sp_client->live_time));
   ++client_num;
 }
 
@@ -64,6 +65,13 @@ void Thread::delete_client(SP_Client sp_cli)
 {
   epoll_ctl(epollfd, EPOLL_CTL_DEL, sp_cli->get_fd(), NULL);
   fd2client.erase(sp_cli->get_fd());
+  --client_num;
+}
+
+void Thread::delete_client_by_fd(int fd)
+{
+  epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL);
+  fd2client.erase(fd);
   --client_num;
 }
 

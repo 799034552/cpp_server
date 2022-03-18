@@ -18,6 +18,7 @@ void Client::handle_event()
     write_fn();
   if (is_close && close_fn)
     close_fn();
+  update_timenode();
 }
 
 void Client::update_event(EventType ev)

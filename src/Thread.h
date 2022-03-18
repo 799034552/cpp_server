@@ -5,6 +5,7 @@
 #include<memory>
 #include"mutex.h"
 #include<unistd.h>
+#include"Timer.h"
 
 const int maxClient = 4096;
 const int initial_client = 128;
@@ -21,6 +22,7 @@ class Thread:public std::enable_shared_from_this<Thread> {
     int client_num;
     int wakeup_fd;
     std::vector<CallBack> jobs_quene; //主线程给的任务队列
+    Timer timer;
 
 
   public:
@@ -31,6 +33,7 @@ class Thread:public std::enable_shared_from_this<Thread> {
     void add_client(SP_Client);
     void update_epoll(int fd, EventType ev);
     void delete_client(SP_Client);
+    void delete_client_by_fd(int fd);
 
     void append_job(CallBack&&);
     void handle_jobs();

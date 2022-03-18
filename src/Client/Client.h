@@ -7,7 +7,9 @@
 #include"util.h"
 #include<unistd.h>
 #include"thread"
+//#include"Timer.h"
 #define BUF_SIZE 1024
+class TimeNode;
 class Client {
   using CallBack = std::function<void()>;
   using EventType = decltype(epoll_event::events);
@@ -20,13 +22,17 @@ class Client {
     EventType revent;
     CallBack read_fn;
     CallBack write_fn;
-    CallBack close_fn;
     int epollfd;
     int read_all(bool &m_is_close);
     LINE_STATE read_line();
+    std::shared_ptr<TimeNode> time_node;
+    void update_timenode();
+    
   public:
     bool is_close;
-    Client(const int &fd_):fd(fd_),is_close(false) { set_fd_noblock(fd); };
+    time_t live_time;
+    CallBack close_fn;
+    Client(const int &fd_):fd(fd_),is_close(false),live_time(2*60) { set_fd_noblock(fd); };
     void set_event(const EventType &e){ event = e;}
     void set_revent(const EventType &e){ revent = e;}
     EventType get_event() const { return event; }
@@ -35,6 +41,7 @@ class Client {
     void set_write_fn(const CallBack &fn) { read_fn = fn; }
     void set_close_fn(const CallBack &fn) { close_fn = fn; }
     void set_epollfd(const int &fd) { epollfd = fd ;}
+    void set_time_node(const std::shared_ptr<TimeNode> &t);
     void update_event(EventType);
     void handle_event();
 };
