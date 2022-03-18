@@ -1,7 +1,10 @@
 #include"HttpClient.h"
+#include "document.h"
 #include<iostream>
+#include<fstream>
 using std::cout;
 using std::endl;
+using std::ifstream;
 
 std::map<string, std::function<void(Req&, Res&)>> HttpClient::get_progress;
 std::map<string, std::function<void(Req&, Res&)>> HttpClient::post_progress;
@@ -15,7 +18,8 @@ HttpClient::HttpClient(const int &fd_):
   Client(fd_),
   parse_state(PARSE_STATE::URL),
   read_close(false),
-  http_state(HTTP_STATE::HTTP_OPEN)
+  http_state(HTTP_STATE::HTTP_OPEN),
+  is_json(false)
 {
   read_fn = std::bind(&HttpClient::http_read, this);
   write_fn = std::bind(&HttpClient::http_write, this);
@@ -41,6 +45,7 @@ void HttpClient::reset()
   header["Keep-Alive"]="timeout=20000";
   header["Content-Type"]="text/plain";
   header["Server"]="string\'s server";
+  is_json = false;
 }
 
 /**
@@ -72,9 +77,10 @@ void HttpClient::http_read()
     if (http_state == HTTP_STATE::HTTP_BAD) { //错误就关闭
       is_close = true;
       break;
-    } else if (http_state == HTTP_STATE::HTTP_OK)
+    } else if (http_state == HTTP_STATE::HTTP_OK || parse_state == PARSE_STATE::BODY)
       break;
   }
+  cout<<"parse get over----------------"<<endl;
   if (parse_state == PARSE_STATE::BODY)
     cout<<"pase body",http_state = parse_body();
   
@@ -88,27 +94,37 @@ void HttpClient::http_read()
 }
 HttpClient::HTTP_STATE HttpClient::parse_url(const string &line)
 {
+  cout<<"parse url----------------"<<endl;
   auto line_res = split_const(line, {' ','\t'});
+  
   if (line_res.size() == 3) {
     http_data["method"] = line_res[0];
     http_data["version"] = line_res[2];
 
-    auto s_res = split_const(line_res[1], '?');
-    http_data["url"] = s_res[0];
-    s_res = split_const(s_res[1], '&');
-    for(const auto &temp: s_res){
-      const auto m_res = split_const(temp, '=');
-      get_data[m_res[0]] = m_res[1];
+    if (line_res[1].find("?") != string::npos)
+    {
+      auto s_res = split_const(line_res[1], '?');
+      http_data["url"] = s_res[0];
+      s_res = split_const(s_res[1], '&');
+      cout<<"parse url----------------"<<endl;
+      for(const auto &temp: s_res){
+        const auto m_res = split_const(temp, '=');
+        get_data[m_res[0]] = m_res[1];
+      }
     }
+    else
+      http_data["url"] = line_res[1];
 
     parse_state = PARSE_STATE::HEAD;
     return HTTP_STATE::HTTP_OPEN;
   }
   else
     return HTTP_STATE::HTTP_BAD;
+  
 }
 HttpClient::HTTP_STATE HttpClient::parse_head(const string & line)
 {
+  cout<<"parse head----------------"<<endl;
   if (line.size() == 0) {
     if (http_data["method"] == "GET") {
       return HTTP_STATE::HTTP_OK;
@@ -139,6 +155,8 @@ HttpClient::HTTP_STATE HttpClient::parse_body()
   if (client_buf.size() < atoi(http_data["Content-Type"].c_str()))
     return HTTP_STATE::HTTP_OPEN;
   else {
+    cout<<"body is----------------------------\n";
+    cout<<client_buf;
     if (http_data["Content-Type"] == "application/x-www-form-urlencoded") //这种类型才解析
     {
       const auto &s_res = split_const(client_buf, '&');
@@ -146,13 +164,12 @@ HttpClient::HTTP_STATE HttpClient::parse_body()
         const auto m_res = split_const(temp, '=');
         get_data[m_res[0]] = m_res[1];
       }
+      is_json = true;
     }
-    else if (http_data["Content-Type"] == "application/json")
+    else if (try_parse_json(client_buf, get_data))
     {
-
+      is_json = true;
     }
-    else
-      get_data["text"] = client_buf;
     return HTTP_STATE::HTTP_OK;
   }
 }
@@ -162,13 +179,9 @@ void HttpClient::http_write()
 {
   if (send_buf.size() == 0)
   {
-    client_buf.clear();
     Req req;
-    Res res;
-    if (is_json)
-      req.set(is_json, &get_data, NULL);
-    else
-      req.set(is_json, NULL, &get_data["text"]);
+    Res res(header);
+    req.set(is_json, &get_data, &client_buf);
     string url = http_data["url"];
     if(http_data["method"] == "GET")
     {
@@ -182,12 +195,34 @@ void HttpClient::http_write()
           break;
         }
       }
-      if (be == en)
-        res.send("404 not found");
+      if (be == en) //没有被捕获的页面
+      {
+        char buf[1024];
+        string file_url = "www" + url;
+        ifstream fs(file_url.c_str(), ifstream::in);
+        cout<<"url-----------------------"<<file_url<<endl;
+        cout<<"locate-----------------"<<getcwd(buf,1024)<<endl;
+        file_url = "../" + file_url;
+        if (fs.is_open() || (fs.open(file_url, ifstream::in),fs.is_open()))
+        {
+          while(std::getline(fs, file_url))
+            res.send(file_url);
+          res.add_header("Content-Type", "text/html");
+          for(auto t: header)
+            cout<<t.first<<" "<<t.second<<endl;
+          fs.close();
+        }
+        else
+          res.send("404 not found");
+
+      }
+        
     }
     else if (http_data["method"] == "POST" && ( //支持的类型
       http_data["Content-Type"] == "application/x-www-form-urlencoded"
       || http_data["Content-Type"] == "text/plain"
+      || http_data["Content-Type"] == "application/json"
+      || http_data["Content-Type"] == ""
       ))
     {
       auto en = post_progress.end();
@@ -211,6 +246,7 @@ void HttpClient::http_write()
       res.send("Service Unavailable");
     }
     read_to_send(res);
+    client_buf.clear();
     cout<<"i send this----------------------------------------"<<endl;
     printf("send:\n%s\n",send_buf.c_str());
   }
@@ -255,4 +291,60 @@ int HttpClient::get_line(string &line)
   }
   else
     return -1;
+}
+
+/**
+ * @brief 解析json
+ * 
+ * @param s 输入字符串
+ * @param res 输出的map
+ * @return true 成功解析
+ */
+bool HttpClient::try_parse_json(const string &s, std::unordered_map<string,string> &res)
+{
+  try
+  {
+    rapidjson::Document d;
+    d.Parse(s.c_str());
+    if (!d.IsObject())
+      return false;
+    auto en = d.MemberEnd();
+    for(auto be = d.MemberBegin(); be != en; ++be)
+    {
+      auto key = be->value.GetType();
+      if (key != rapidjson::kNumberType
+        && key != rapidjson::kStringType
+        && key != rapidjson::kTrueType
+        && key != rapidjson::kFalseType
+      )
+      {
+        return false;
+      }
+    }
+
+    for(auto be = d.MemberBegin(); be != en; ++be)
+    {
+      auto key = be->value.GetType();
+      if (key == rapidjson::kNumberType)
+      {
+        string temp;
+        if (be->value.IsInt())
+          temp = std::to_string(be->value.GetInt());
+        else if (be->value.IsFloat())
+          temp = std::to_string(be->value.GetFloat());
+        else
+          return false;
+        res[be->name.GetString()] = temp;
+      }
+      else if(key == rapidjson::kStringType)
+        res[be->name.GetString()] = be->value.GetString();
+      else if (key == rapidjson::kFalseType || key == rapidjson::kTrueType)
+        res[be->name.GetString()] = be->value.GetBool()?"true":"false";
+    }
+    return true;
+  }
+  catch(const std::exception& e)
+  {
+    return false;
+  }
 }
