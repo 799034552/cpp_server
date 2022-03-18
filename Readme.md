@@ -6,6 +6,7 @@
 * expressjs风格，用起来语法简单
 * 支持get/post
 * 引入`rapidjson`支持json解析，如果只有一层json会默认解析成map
+* 支持html页面展示
 * 半同步/半异步并发模型（Reactor模型）,ET边缘触发，eventfd唤醒子进程
 * 利用小根堆非活跃连接超时断开，默认为3分钟
 * C++11特性，bind，shared_ptr,std::function应用
