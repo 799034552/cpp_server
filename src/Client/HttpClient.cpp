@@ -55,8 +55,8 @@ void HttpClient::reset()
 void HttpClient::http_read()
 {
   int n = read_all(read_close);
-  cout<<"i got this raw----------------------------------------"<<endl;
-  cout<<client_buf<<endl;
+  //cout<<"i got this raw----------------------------------------"<<endl;
+  //cout<<client_buf<<endl;
   if (n < 0) {
     is_close = true;
     return;
@@ -80,21 +80,21 @@ void HttpClient::http_read()
     } else if (http_state == HTTP_STATE::HTTP_OK || parse_state == PARSE_STATE::BODY)
       break;
   }
-  cout<<"parse get over----------------"<<endl;
+  //cout<<"parse get over----------------"<<endl;
   if (parse_state == PARSE_STATE::BODY)
-    cout<<"pase body",http_state = parse_body();
+    //cout<<"pase body",http_state = parse_body();
   
   if (read_close || http_state == HTTP_STATE::HTTP_OK)
     update_event(EPOLLOUT|EPOLLET);
   
-  cout<<"i got this----------------------------------------"<<endl;
+  //cout<<"i got this----------------------------------------"<<endl;
   for(const auto &t: http_data)
     printf("%s:%s\n", t.first.c_str(), t.second.c_str());
-  cout<<"http_state:"<<(http_state == HTTP_STATE::HTTP_OK)<<endl;
+  //cout<<"http_state:"<<(http_state == HTTP_STATE::HTTP_OK)<<endl;
 }
 HttpClient::HTTP_STATE HttpClient::parse_url(const string &line)
 {
-  cout<<"parse url----------------"<<endl;
+  //cout<<"parse url----------------"<<endl;
   auto line_res = split_const(line, {' ','\t'});
   
   if (line_res.size() == 3) {
@@ -124,7 +124,7 @@ HttpClient::HTTP_STATE HttpClient::parse_url(const string &line)
 }
 HttpClient::HTTP_STATE HttpClient::parse_head(const string & line)
 {
-  cout<<"parse head----------------"<<endl;
+  //cout<<"parse head----------------"<<endl;
   if (line.size() == 0) {
     if (http_data["method"] == "GET") {
       return HTTP_STATE::HTTP_OK;
@@ -155,8 +155,8 @@ HttpClient::HTTP_STATE HttpClient::parse_body()
   if (client_buf.size() < atoi(http_data["Content-Type"].c_str()))
     return HTTP_STATE::HTTP_OPEN;
   else {
-    cout<<"body is----------------------------\n";
-    cout<<client_buf;
+    //cout<<"body is----------------------------\n";
+    //cout<<client_buf;
     if (http_data["Content-Type"] == "application/x-www-form-urlencoded") //这种类型才解析
     {
       const auto &s_res = split_const(client_buf, '&');
@@ -200,16 +200,16 @@ void HttpClient::http_write()
         char buf[1024];
         string file_url = "www" + url;
         ifstream fs(file_url.c_str(), ifstream::in);
-        cout<<"url-----------------------"<<file_url<<endl;
-        cout<<"locate-----------------"<<getcwd(buf,1024)<<endl;
+        //cout<<"url-----------------------"<<file_url<<endl;
+        //cout<<"locate-----------------"<<getcwd(buf,1024)<<endl;
         file_url = "../" + file_url;
         if (fs.is_open() || (fs.open(file_url, ifstream::in),fs.is_open()))
         {
           while(std::getline(fs, file_url))
             res.send(file_url);
           res.add_header("Content-Type", "text/html");
-          for(auto t: header)
-            cout<<t.first<<" "<<t.second<<endl;
+          // for(auto t: header)
+          //   cout<<t.first<<" "<<t.second<<endl;
           fs.close();
         }
         else
@@ -247,7 +247,7 @@ void HttpClient::http_write()
     }
     read_to_send(res);
     client_buf.clear();
-    cout<<"i send this----------------------------------------"<<endl;
+    //cout<<"i send this----------------------------------------"<<endl;
     printf("send:\n%s\n",send_buf.c_str());
   }
 
