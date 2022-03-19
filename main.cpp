@@ -6,7 +6,7 @@ int main()
     Server app;
     app.listen(4399, []{
         printf("server start at 127.0.0.1:4399\n");
-    },3);
+    },1);
 
     app.get("/", [](Req &req, Res &res){
         res.send("i get :\r\n");
@@ -30,6 +30,17 @@ int main()
             res.send(*req.text);
         }
         //res.send("hello world");
+    });
+    vector<std::shared_ptr<WSClient>> socket_list;
+    app.ws("/websocket", [&](std::shared_ptr<WSPool> io){
+        io->on_connect([&](std::shared_ptr<WSClient> socket){
+            socket->on_get([&socket](string text) {
+                //socket->emit("456");
+            });
+            // socket_list.push_back(socket);
+            socket->emit("hello");
+            //printf("new connect----------------\n");
+        });
     });
 
     app.run();

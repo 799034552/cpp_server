@@ -32,7 +32,7 @@ class Res {
 
 class HttpClient: public Client {
   private:
-    enum class HTTP_STATE {HTTP_OPEN = 0, HTTP_BAD, HTTP_OK, HTTP_CLOSE};
+    enum class HTTP_STATE {HTTP_OPEN = 0, HTTP_BAD, HTTP_OK, HTTP_CLOSE, WS};
     enum class PARSE_STATE {URL = 0, HEAD, BODY};
     PARSE_STATE parse_state;
     HTTP_STATE http_state;
@@ -51,6 +51,7 @@ class HttpClient: public Client {
     int get_line(string &line);
     bool is_json;
     bool try_parse_json(const string &s, std::unordered_map<string,string> &res);
+    void handle_ws_connect();
   public:
     static std::map<string, std::function<void(Req&, Res&)>> get_progress;
     static std::map<string, std::function<void(Req&, Res&)>> post_progress;

@@ -2,6 +2,8 @@
 #include<stdio.h>
 #include<sys/epoll.h>
 #include<sys/eventfd.h>
+#include<iostream>
+using namespace std;
 Thread::Thread()
   :events(initial_client),
   client_num(0),
@@ -26,8 +28,9 @@ void Thread::run()
   #endif
   while(1)
   {
+    
     if ((event_num = epoll_wait(epollfd, &events[0], events.size(), -1)) < 0)
-      perror("epoll error");
+      perror("epoll error!!!!!");
     for(int i = 0; i < event_num; ++i)
     {
       int fd = events[i].data.fd;
@@ -56,6 +59,7 @@ void Thread::add_client(SP_Client sp_client, bool is_timeout)
   epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &t_event);
   fd2client[fd] = sp_client;
   sp_client->set_close_fn(std::bind(&Thread::delete_client, this, sp_client));
+  sp_client->set_change_fn(std::bind(&Thread::change_client, this, sp_client, std::placeholders::_1));
   sp_client->set_epollfd(epollfd);
   if (is_timeout)
     sp_client->set_time_node(timer.add_time_node(sp_client, time(0) + sp_client->live_time));
@@ -64,9 +68,29 @@ void Thread::add_client(SP_Client sp_client, bool is_timeout)
 
 void Thread::delete_client(SP_Client sp_cli)
 {
+  sp_cli->delete_timenode();
   epoll_ctl(epollfd, EPOLL_CTL_DEL, sp_cli->get_fd(), NULL);
   fd2client.erase(sp_cli->get_fd());
   --client_num;
+}
+/**
+ * @brief 将一个事件处理转变为另一个事件处理
+ * 
+ */
+void Thread::change_client(SP_Client a, SP_Client b)
+{
+  // int fd = b->get_fd();
+  // a->delete_timenode();
+  // fd2client[fd] = b;
+  // epoll_event t_event;
+  // t_event.data.fd = fd;
+  // t_event.events = EPOLLOUT|EPOLLIN; //b->get_event();
+  //epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &t_event);
+  //b->write_fn();
+  delete_client(a);
+  add_client(b, true);
+
+
 }
 
 void Thread::delete_client_by_fd(int fd)

@@ -33,6 +33,7 @@ class Thread:public std::enable_shared_from_this<Thread> {
     void add_client(SP_Client, bool is_timeout);
     void update_epoll(int fd, EventType ev);
     void delete_client(SP_Client);
+    void change_client(SP_Client, SP_Client);
     void delete_client_by_fd(int fd);
 
     void append_job(CallBack&&);

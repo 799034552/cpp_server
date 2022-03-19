@@ -4,6 +4,8 @@
 #include"util.h"
 #include"Client.h"
 #include"HttpClient.h"
+#include"WSClient.h"
+#include"WSPool.h"
 #include<string>
 #include<sys/socket.h>
 #include<memory>
@@ -16,6 +18,7 @@ class Server {
     std::unique_ptr<ThreadPool> thread_pool; //线程池
     std::shared_ptr<Thread> main_thread; //主线程
     std::shared_ptr<Client> appcet_client;
+    std::shared_ptr<WSPool> ws_pool;
     int Socket();
     void Bind(int fd, int port);
     void get_accept();
@@ -26,4 +29,5 @@ class Server {
     void run();
     void get(const string& url, const std::function<void(Req&, Res&)> &);
     void post(const string& url, const std::function<void(Req&, Res&)> &);
+    void ws(const string& url, const std::function<void(std::shared_ptr<WSPool>)> & ws_pool);
 };

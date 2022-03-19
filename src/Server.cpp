@@ -75,3 +75,8 @@ void Server::post(const string& url, const std::function<void(Req&, Res&)> &fn)
 {
   HttpClient::post_progress[url]=fn;
 }
+
+void Server::ws(const string& url, const std::function<void(std::shared_ptr<WSPool>)> & ws_fn)
+{
+  ws_fn(ws_pool);
+}

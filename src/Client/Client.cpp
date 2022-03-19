@@ -6,23 +6,28 @@
  */
 void Client::handle_event()
 {
+  update_timenode();
   if (revent & EPOLLERR)
   {
-    perror("poll error");
+    perror("poll error\n");
     is_close = true;
     return;
   }
   else if (revent & (EPOLLIN | EPOLLPRI | EPOLLRDHUP))
     read_fn();
   else if (revent & EPOLLOUT)
+  {
     write_fn();
+  }
   if (is_close && close_fn)
     close_fn();
-  update_timenode();
+  if (is_change && change_fn)
+    change_fn(change_to_client);
 }
 
 void Client::update_event(EventType ev)
 {
+  event = ev;
   epoll_event t;
   t.data.fd = fd;
   t.events = ev;
@@ -43,7 +48,7 @@ int Client::read_all(bool &m_is_close)
   while((n = read(fd, buf, BUF_SIZE - 1)) > 0)
   {
     buf[n] = '\0';
-    client_buf += buf;
+    rec_buf += buf;
     sum += n;
   }
   if (n == 0)

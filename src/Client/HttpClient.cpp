@@ -1,5 +1,11 @@
 #include"HttpClient.h"
 #include "document.h"
+#include"WSPool.h"
+#include <openssl/sha.h>
+#include <openssl/pem.h>
+#include <openssl/bio.h>
+#include <openssl/evp.h>
+#include"WSClient.h"
 #include<iostream>
 #include<fstream>
 using std::cout;
@@ -25,7 +31,6 @@ HttpClient::HttpClient(const int &fd_):
   write_fn = std::bind(&HttpClient::http_write, this);
   set_event(EPOLLIN | EPOLLET);
   reset();
-
 };
 
 /**
@@ -55,8 +60,8 @@ void HttpClient::reset()
 void HttpClient::http_read()
 {
   int n = read_all(read_close);
-  //cout<<"i got this raw----------------------------------------"<<endl;
-  //cout<<client_buf<<endl;
+  cout<<"i got this raw----------------------------------------"<<endl;
+  cout<<rec_buf<<endl;
   if (n < 0) {
     is_close = true;
     return;
@@ -74,11 +79,17 @@ void HttpClient::http_read()
       http_state = parse_head(line);
     else
       break;
+
     if (http_state == HTTP_STATE::HTTP_BAD) { //错误就关闭
       is_close = true;
       break;
     } else if (http_state == HTTP_STATE::HTTP_OK || parse_state == PARSE_STATE::BODY)
       break;
+    else if (http_state == HTTP_STATE::WS) {
+      cout<<"Get ws---------------------------"<<endl;
+      update_event(EPOLLOUT|EPOLLET);
+      return;
+    }
   }
   //cout<<"parse get over----------------"<<endl;
   if (parse_state == PARSE_STATE::BODY)
@@ -124,10 +135,15 @@ HttpClient::HTTP_STATE HttpClient::parse_url(const string &line)
 }
 HttpClient::HTTP_STATE HttpClient::parse_head(const string & line)
 {
-  //cout<<"parse head----------------"<<endl;
   if (line.size() == 0) {
     if (http_data["method"] == "GET") {
-      return HTTP_STATE::HTTP_OK;
+      if (http_data.find("Sec-WebSocket-Extensions") != http_data.end())
+      {
+        return HTTP_STATE::WS;
+      }
+      else {
+        return HTTP_STATE::HTTP_OK;
+      }
     }
     else if (http_data["method"] == "POST") {
       get_data.clear();
@@ -137,14 +153,16 @@ HttpClient::HTTP_STATE HttpClient::parse_head(const string & line)
       return HTTP_STATE::HTTP_BAD;
   }
   auto line_res = split_const(line, ':');
+  const vector<string> care_key= {"Connection", "Content-Length", "Content-Type",
+                          "Sec-WebSocket-Extensions", "Sec-WebSocket-Key"
+                          };
   if (line_res.size() > 1)
   {
-    if (line_res[0] == "Connection")
-      http_data["Connection"] = line_res[1];
-    else if (line_res[0] == "Content-Length")
-      http_data["Content-Length"] = line_res[1];
-    else if (line_res[0] == "Content-Type")
-      http_data["Content-Type"] = line_res[1];
+    for(const auto &t : care_key)
+    {
+      if (line_res[0] == t)
+        http_data[t] = line_res[1];
+    }
     return HTTP_STATE::HTTP_OPEN;
   }
   else
@@ -152,21 +170,21 @@ HttpClient::HTTP_STATE HttpClient::parse_head(const string & line)
 }
 HttpClient::HTTP_STATE HttpClient::parse_body()
 {
-  if (client_buf.size() < atoi(http_data["Content-Type"].c_str()))
+  if (rec_buf.size() < atoi(http_data["Content-Type"].c_str()))
     return HTTP_STATE::HTTP_OPEN;
   else {
     //cout<<"body is----------------------------\n";
-    //cout<<client_buf;
+    //cout<<rec_buf;
     if (http_data["Content-Type"] == "application/x-www-form-urlencoded") //这种类型才解析
     {
-      const auto &s_res = split_const(client_buf, '&');
+      const auto &s_res = split_const(rec_buf, '&');
       for(const auto &temp: s_res){
         const auto m_res = split_const(temp, '=');
         get_data[m_res[0]] = m_res[1];
       }
       is_json = true;
     }
-    else if (try_parse_json(client_buf, get_data))
+    else if (try_parse_json(rec_buf, get_data))
     {
       is_json = true;
     }
@@ -174,14 +192,34 @@ HttpClient::HTTP_STATE HttpClient::parse_body()
   }
 }
 
+/**
+ * @brief websocke握手
+ * 
+ */
+void HttpClient::handle_ws_connect()
+{
+  
+  char sha1_data[30] = {0};
+  char sec_accept[32] = {0};
+  string sha_in = http_data["Sec-WebSocket-Key"] + WSClient::GUID;
+  SHA1((unsigned char*)&sha_in[0], sha_in.size(), (unsigned char*)sha1_data);
+  //base64_encode(&sha1_data[0],strlen(sha1_data),sec_accept);
+  string res = m_base64_encode((unsigned char *)&sha1_data, strlen(sha1_data));//sec_accept;
+  send_buf = 
+    "HTTP/1.1 101 Switching Protocols\r\n" 
+    "Upgrade: websocket\r\n" 
+    "Connection: Upgrade\r\n" 
+    "Sec-WebSocket-Accept: "+ res +"\r\n\r\n";
+}
+
 
 void HttpClient::http_write()
 {
-  if (send_buf.size() == 0)
+  if (send_buf.size() == 0 && http_state != HTTP_STATE::WS)
   {
     Req req;
     Res res(header);
-    req.set(is_json, &get_data, &client_buf);
+    req.set(is_json, &get_data, &rec_buf);
     string url = http_data["url"];
     if(http_data["method"] == "GET")
     {
@@ -246,9 +284,13 @@ void HttpClient::http_write()
       res.send("Service Unavailable");
     }
     read_to_send(res);
-    client_buf.clear();
+    rec_buf.clear();
     //cout<<"i send this----------------------------------------"<<endl;
     //printf("send:\n%s\n",send_buf.c_str());
+  }
+  else if (http_state == HTTP_STATE::WS && send_buf.size() == 0)
+  {
+    handle_ws_connect();
   }
 
   int n = write(fd, &send_buf[0], send_buf.size());
@@ -257,7 +299,19 @@ void HttpClient::http_write()
     if(n == send_buf.size()) //发送成功
     {
       update_event(EPOLLIN|EPOLLET);
-      reset();
+      if (http_state == HTTP_STATE::WS)
+      {
+        is_change = true;
+        auto temp = std::make_shared<WSClient>(fd, http_data);
+        if (WSPool::connect_fn)
+          WSPool::connect_fn(temp);
+        change_to_client = temp;
+        return;
+      }
+      else
+      {
+        reset();
+      }
     }
     else  //发送成功一部分
       send_buf = send_buf.substr(n);
@@ -283,10 +337,10 @@ void HttpClient::read_to_send(const Res& res)
 int HttpClient::get_line(string &line)
 {
   int n;
-  if((n = client_buf.find("\r\n")) != string::npos)
+  if((n = rec_buf.find("\r\n")) != string::npos)
   {
-    line = client_buf.substr(0, n);
-    client_buf.erase(0, n+2);
+    line = rec_buf.substr(0, n);
+    rec_buf.erase(0, n+2);
     return 0;
   }
   else

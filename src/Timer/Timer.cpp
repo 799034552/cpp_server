@@ -28,8 +28,7 @@ void Timer::check()
       
     if (time_node->is_delete) //已经删除
     {
-      if (client && client->close_fn)
-        client->close_fn();
+        //client->close_fn();
     }
     else if(time_node->is_update) //更新过
     {
@@ -56,4 +55,9 @@ void Client::set_time_node(const std::shared_ptr<TimeNode> &t) {time_node = t;}
 void Client::update_timenode() {
   if (time_node != nullptr)
     time_node->is_update = true;
+}
+
+void Client::delete_timenode() {
+  if (time_node != nullptr)
+    time_node->is_delete = true;
 }
