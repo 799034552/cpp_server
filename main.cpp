@@ -32,9 +32,12 @@ int main()
         //res.send("hello world");
     });
     vector<std::shared_ptr<WSClient>> socket_list;
+    string b = "@3432";
     app.ws("/websocket", [&](std::shared_ptr<WSPool> io){
         io->on_connect([&](std::shared_ptr<WSClient> socket){
-            socket->on_get([&socket](string text) {
+            socket_list.push_back(socket);
+            socket->on_get([&](string text, std::shared_ptr<WSClient> sp_socket) {
+                sp_socket->emit(text);
                 //socket->emit("456");
             });
             // socket_list.push_back(socket);

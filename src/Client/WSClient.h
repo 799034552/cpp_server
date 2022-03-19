@@ -31,9 +31,12 @@ class WSClient : public Client,public std::enable_shared_from_this<WSClient>
     frame_head f_head;
     void reset();
   public:
+    string rubbish;
     static const string GUID;
     WSClient(int fd_,std::unordered_map<string, string> &http_data);
-    void on_get(const std::function<void(string)> & fn){ get_fn = fn; }
+    void on_get(const std::function<void(string, std::shared_ptr<WSClient>)> & fn){
+      get_fn = std::bind(fn, std::placeholders::_1, shared_from_this());
+      }
     void emit(string);
   
 };
