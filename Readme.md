@@ -9,6 +9,7 @@
 * 支持静态html页面展示，页面放在www文件夹
 * 支持post，支持`application/x-www-form-urlencoded`，`text/plain`，`application/json`的Content-Type内容解析
 * 引入`rapidjson`支持json解析，如果只有一层json会默认解析成map
+* 三种客户端：socket回射,http,websocket
 * 半同步/半异步并发模型（Reactor模型），利用epoll,ET边缘触发
 * 支持多线程，eventfd唤醒子线程
 * 利用小根堆非活跃连接超时断开，http为3分钟，websocket为10分钟
