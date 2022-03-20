@@ -60,8 +60,8 @@ void HttpClient::reset()
 void HttpClient::http_read()
 {
   int n = read_all(read_close);
-  cout<<"i got this raw----------------------------------------"<<endl;
-  cout<<rec_buf<<endl;
+  //cout<<"i got this raw----------------------------------------"<<endl;
+  //cout<<rec_buf<<endl;
   if (n < 0) {
     is_close = true;
     return;
@@ -86,7 +86,7 @@ void HttpClient::http_read()
     } else if (http_state == HTTP_STATE::HTTP_OK || parse_state == PARSE_STATE::BODY)
       break;
     else if (http_state == HTTP_STATE::WS) {
-      cout<<"Get ws---------------------------"<<endl;
+      //cout<<"Get ws---------------------------"<<endl;
       update_event(EPOLLOUT|EPOLLET);
       return;
     }
@@ -301,10 +301,14 @@ void HttpClient::http_write()
       update_event(EPOLLIN|EPOLLET);
       if (http_state == HTTP_STATE::WS)
       {
+        if (WSPool::connect_fns.find(http_data["url"]) == WSPool::connect_fns.end()) // 没有对应的事件注册
+        {
+          is_close = true;
+          return;
+        }
         is_change = true;
         auto temp = std::make_shared<WSClient>(fd, http_data);
-        if (WSPool::connect_fn)
-          WSPool::connect_fn(temp);
+        WSPool::connect_fns[http_data["url"]](temp);
         change_to_client = temp;
         return;
       }

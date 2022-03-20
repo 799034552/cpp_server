@@ -10,7 +10,6 @@
 #include<sys/socket.h>
 #include<memory>
 using std::string;
-
 class Server {
   private:
     int port; //端口
@@ -31,3 +30,5 @@ class Server {
     void post(const string& url, const std::function<void(Req&, Res&)> &);
     void ws(const string& url, const std::function<void(std::shared_ptr<WSPool>)> & ws_pool);
 };
+#define SP_WSPool std::shared_ptr<WSPool>
+#define SP_WSClient std::shared_ptr<WSClient>

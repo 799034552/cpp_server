@@ -68,6 +68,7 @@ void Thread::add_client(SP_Client sp_client, bool is_timeout)
 
 void Thread::delete_client(SP_Client sp_cli)
 {
+  close(sp_cli->get_fd());
   sp_cli->delete_timenode();
   epoll_ctl(epollfd, EPOLL_CTL_DEL, sp_cli->get_fd(), NULL);
   fd2client.erase(sp_cli->get_fd());
@@ -87,7 +88,10 @@ void Thread::change_client(SP_Client a, SP_Client b)
   // t_event.events = EPOLLOUT|EPOLLIN; //b->get_event();
   //epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &t_event);
   //b->write_fn();
-  delete_client(a);
+  a->delete_timenode();
+  epoll_ctl(epollfd, EPOLL_CTL_DEL, a->get_fd(), NULL);
+  fd2client.erase(a->get_fd());
+  --client_num;
   add_client(b, true);
 
 

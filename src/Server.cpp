@@ -40,7 +40,6 @@ void Server::get_accept()
     perror("accept fail");
     return;
   }
-  printf("main thread i get connect\n");
   //SP_ReflexClient client = SP_ReflexClient(new ReflexClient(connfd));
   SP_HttpClient client = SP_HttpClient(new HttpClient(connfd));
   SP_Thread thr = thread_pool->get_next_thread();
@@ -78,5 +77,8 @@ void Server::post(const string& url, const std::function<void(Req&, Res&)> &fn)
 
 void Server::ws(const string& url, const std::function<void(std::shared_ptr<WSPool>)> & ws_fn)
 {
+  
+  ws_pool->pre_url = url;
   ws_fn(ws_pool);
+  ws_pool->pre_url = "";
 }

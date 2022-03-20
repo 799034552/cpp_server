@@ -125,7 +125,7 @@ WSClient::WSClient(int fd_,std::unordered_map<string, string> &http_data):
   parse_state(PARSE_STATE::TWO_CHAR),
   is_send_over(true)
 {
-  req_head.swap(http_data);
+  req_head = http_data;
   read_fn = std::bind(&WSClient::ws_read, this);
   write_fn = std::bind(&WSClient::ws_write, this);
   set_event(EPOLLIN|EPOLLET);
@@ -136,7 +136,7 @@ WSClient::WSClient(int fd_,std::unordered_map<string, string> &http_data):
 }
 void WSClient::ws_read()
 {
-  cout<<"ws read------------------"<<endl;
+  //cout<<"ws read------------------"<<endl;
   int n = read_all(read_close);
   if (n < 0) {
     is_close = true;
@@ -200,8 +200,8 @@ void WSClient::ws_read()
   if (read_state == READ_STATE::READ_OK)
   {
     update_event(EPOLLOUT|EPOLLET);
-    cout<<"i get ws data------------------"<<endl;
-    cout<<rec_buf<<endl;
+    //cout<<"i get ws data------------------"<<endl;
+    //cout<<rec_buf<<endl;
     if (get_fn)
       get_fn(rec_buf);
     //emit(rec_buf);
@@ -216,8 +216,8 @@ void WSClient::ws_write()
 {
   if (send_buf.size() > 0)
   {
-    cout<<"ws write-----------------------"<<endl;
-    cout<<send_buf<<endl;
+    //cout<<"ws write-----------------------"<<endl;
+    //cout<<send_buf<<endl;
     if (is_send_over) {
       f_head.payload_length = send_buf.size();
       send_buf =  get_send_head(&f_head) + send_buf;
@@ -247,11 +247,11 @@ void WSClient::ws_write()
 
 void WSClient::emit(string s)
 {
-  cout<<"emit start--------------------"<<endl;
+  //cout<<"emit start--------------------"<<endl;
   send_buf = s;
   
   update_event(EPOLLOUT|EPOLLET);
-  cout<<"emit end--------------------"<<endl;
+  //cout<<"emit end--------------------"<<endl;
   
 }
 
