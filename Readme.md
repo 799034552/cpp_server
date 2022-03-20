@@ -12,6 +12,7 @@
 * 半同步/半异步并发模型（Reactor模型），利用epoll,ET边缘触发
 * 支持多线程，eventfd唤醒子线程
 * 利用小根堆非活跃连接超时断开，http为3分钟，websocket为10分钟
+* 使用状态机解析http头与websocket帧
 * C++11特性，bind，shared_ptr,std::function，auto等应用
 
 ## 快速上手
