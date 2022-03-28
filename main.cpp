@@ -2,6 +2,8 @@
 #include<stdio.h>
 int main()
 {
+    //成为守护进程
+    //daemon(1, 0);
     Server app;
     app.listen(4399, []{
         printf("server start at 127.0.0.1:4399\n");
