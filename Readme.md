@@ -77,7 +77,14 @@ mkdir build && cd build && cmake .. && make
 └── www #静态文件
     └── index.html
 ```
+# 压力测试
+
+使用webbench，支持上万的并发。
+
+![image-20220329162149801](Readme.assets/image-20220329162149801.png)
+
 # TODO
+
 - [x] 添加json支持
 - [X] 添加websocket支持
 - [ ] 添加日志系统
