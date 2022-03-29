@@ -60,8 +60,8 @@ void HttpClient::reset()
 void HttpClient::http_read()
 {
   int n = read_all(read_close);
-  //cout<<"i got this raw----------------------------------------"<<endl;
-  //cout<<rec_buf<<endl;
+  // cout<<"i got this raw----------------------------------------"<<endl;
+  // cout<<rec_buf<<endl;
   if (n < 0) {
     is_close = true;
     return;
@@ -223,6 +223,7 @@ void HttpClient::http_write()
     string url = http_data["url"];
     if(http_data["method"] == "GET")
     {
+      //cout<<url<<endl;
       auto en = get_progress.end();
       auto be = get_progress.begin();
       for(; be !=  en; ++be)
@@ -233,9 +234,12 @@ void HttpClient::http_write()
           break;
         }
       }
+      
       if (be == en) //没有被捕获的页面
       {
+        //cout<<url<<endl;
         char buf[1024];
+        if (url == "/") url = "/index.html";
         string file_url = "www" + url;
         ifstream fs(file_url.c_str(), ifstream::in);
         //cout<<"url-----------------------"<<file_url<<endl;
@@ -244,7 +248,7 @@ void HttpClient::http_write()
         if (fs.is_open() || (fs.open(file_url, ifstream::in),fs.is_open()))
         {
           while(std::getline(fs, file_url))
-            res.send(file_url);
+            res.send(file_url+"\n");
           res.add_header("Content-Type", "text/html");
           // for(auto t: header)
           //   //cout<<t.first<<" "<<t.second<<endl;
@@ -292,12 +296,17 @@ void HttpClient::http_write()
   {
     handle_ws_connect();
   }
-
+  //cout<<"输出的是："<<send_buf<<endl;
   int n = write(fd, &send_buf[0], send_buf.size());
   if (n > 0) 
   {
     if(n == send_buf.size()) //发送成功
     {
+      if (http_data["Connection"] != "Keep-Alive")
+      {
+        is_close = true;
+        return;
+      }
       update_event(EPOLLIN|EPOLLET);
       if (http_state == HTTP_STATE::WS)
       {
@@ -333,7 +342,7 @@ void HttpClient::read_to_send(const Res& res)
   send_buf += send_first + "\r\n";
   header["Content-Length"] = std::to_string(res.get_buf().size());
   for(const auto &temp: header)
-    send_buf += (temp.first+ ":" + temp.second + "\r\n");
+    send_buf += (temp.first+ ": " + temp.second + "\r\n");
   send_buf += "\r\n";
   send_buf += res.get_buf();
 }

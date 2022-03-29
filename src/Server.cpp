@@ -40,6 +40,7 @@ void Server::get_accept()
     perror("accept fail");
     return;
   }
+  //cout<<"new init"<<endl;
   //SP_ReflexClient client = SP_ReflexClient(new ReflexClient(connfd));
   SP_HttpClient client = SP_HttpClient(new HttpClient(connfd));
   SP_Thread thr = thread_pool->get_next_thread();
